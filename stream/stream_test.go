@@ -2,10 +2,10 @@
 package stream_test
 
 import (
-    "github.com/princeofdatamining/golib/stream"
-    "testing"
     "fmt"
     "io"
+    "testing"
+    "github.com/princeofdatamining/golib/stream"
 )
 
 var (

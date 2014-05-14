@@ -1,0 +1,33 @@
+
+syntax = "proto2";
+
+package testdata;
+
+enum const_number {
+    jump_weight = 640;
+    jump_room_max_player = 30;
+}
+
+message jump_pos {
+    optional int32 x = 1;
+    optional int32 y = 2;
+}
+
+message jump_door {
+    optional int32    i32 = 1;
+    optional int64    i64 = 2;
+    optional sint32   s32 = 3;
+    optional sint64   s64 = 4;
+    optional sfixed32 d32 = 5;
+    optional sfixed64 d64 = 6;
+    optional uint32   u32 = 10;
+    optional uint64   u64 = 11;
+    optional fixed32  x32 = 12;
+    optional fixed64  x64 = 13;
+    optional float    f32 = 20;
+    optional double   f64 = 21;
+    optional bool     b   = 30;
+    optional string   s   = 31;
+    optional const_number e = 32;
+    repeated jump_pos pos = 40;
+}
