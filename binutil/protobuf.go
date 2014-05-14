@@ -53,7 +53,7 @@ type ProtobufEncoder interface {
     PutBytes   (tag int, v  []byte) (int, error)
     PutString  (tag int, v  string) (int, error)
 }
-func NewProtobufEncoder2(wr io.Writer, bo ByteOrder2) (ProtobufEncoder) {
+func newProtobufEncoder2(wr io.Writer, bo ByteOrder2) (ProtobufEncoder) {
     b := make([]byte, 32)
     return &pbEncoder{
         wr      : wr,
@@ -63,7 +63,7 @@ func NewProtobufEncoder2(wr io.Writer, bo ByteOrder2) (ProtobufEncoder) {
     }
 }
 func NewProtobufEncoder(wr io.Writer) (ProtobufEncoder) {
-    return NewProtobufEncoder2(wr, Fixed)
+    return newProtobufEncoder2(wr, Fixed)
 }
 
 type ProtobufDecoder interface {
@@ -97,7 +97,7 @@ type ProtobufDecoder interface {
     Bytes   () (n int, v  []byte, err error)
     String  () (n int, v  string, err error)
 }
-func NewProtobufDecoder2(rd io.ReadSeeker, bo ByteOrder2) (ProtobufDecoder) {
+func newProtobufDecoder2(rd io.ReadSeeker, bo ByteOrder2) (ProtobufDecoder) {
     b := make([]byte, 32)
     return &pbDecoder{
         rd      : rd,
@@ -106,7 +106,7 @@ func NewProtobufDecoder2(rd io.ReadSeeker, bo ByteOrder2) (ProtobufDecoder) {
     }
 }
 func NewProtobufDecoder(rd io.ReadSeeker) (ProtobufDecoder) {
-    return NewProtobufDecoder2(rd, Fixed)
+    return newProtobufDecoder2(rd, Fixed)
 }
 
 
