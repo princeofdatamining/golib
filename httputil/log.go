@@ -23,10 +23,11 @@ func (this *Logger) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.
     if this.logger == nil { this.logger = this.getter() }
 
     start := time.Now()
-    this.logger.Printf("Started %s %s", r.Method, r.URL.Path)
+    host := r.Host
+    this.logger.Printf("[%s]Started %s %s", host, r.Method, r.URL.Path)
 
     next(w, r)
 
     res := w.(ResponseWriter)
-    this.logger.Printf("Completed %v %s in %v", res.Status(), http.StatusText(res.Status()), time.Since(start))
+    this.logger.Printf("[%s]Completed %v %s in %v", host, res.Status(), http.StatusText(res.Status()), time.Since(start))
 }
