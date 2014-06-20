@@ -206,8 +206,7 @@ func (this *MultiHostRouter) AddRouter(host_pattern string) (router *Router) {
     }
     defer this.Unlock()
 
-    router = newRouter(host_pattern)
-    router.WrapFunc(this.wrapFunc)
+    router = newRouter(this, host_pattern)
     //
     if host_pattern == MATCH_HOST_ANY {
         this.defaults = router
@@ -220,12 +219,20 @@ func (this *MultiHostRouter) AddRouter(host_pattern string) (router *Router) {
 
 //
 
+func NewRouter() (*Router) {
+    return &Router{
+        rules: make(map[string]*Route),
+        builder: make(map[string][]*builderPart),
+        static: make(map[string]*Route),
+    }
+}
 type Router struct {
     sync.RWMutex
     rules       map[string]*Route
     builder     map[string][]*builderPart
     static      map[string]*Route
     //
+    parent      *MultiHostRouter
     host_re     *regexp.Regexp
     wrapFunc    WrapperFunc
 }
@@ -233,13 +240,12 @@ type builderPart struct {
     key     string
     static  bool
 }
-func newRouter(host_pattern string) (*Router) {
-    return &Router{
-        host_re: regexp.MustCompile(host_pattern),
-        rules: make(map[string]*Route),
-        builder: make(map[string][]*builderPart),
-        static: make(map[string]*Route),
-    }
+func newRouter(p *MultiHostRouter, host_pattern string) (*Router) {
+    this := NewRouter()
+    this.parent = p
+    this.host_re = regexp.MustCompile(host_pattern)
+    this.WrapFunc(p.wrapFunc)
+    return this
 }
 func (this *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) () { this.Handler(r).ServeHTTP(w, r) }
 func (this *Router) Handler(r *http.Request) (http.Handler) {
@@ -281,17 +287,24 @@ func (this *Router) Handle(rule string, h http.Handler) () {
     pattern := ""
     builder := []*builderPart{}
     static := true
-    // anons := 0
+    anons := 0
     for _, parts := range ParseBottleRule(rule) {
         prefix, key, filter, conf := parts[0], parts[1], parts[2], parts[3]
         fmt.Printf("\t%q %q %q %q\n", prefix, key, filter, conf)
-        if prefix == "" {
-            static = false
-            _, _, _ = key, filter, conf
-        } else {
+        if prefix != "" {
             pattern += regexp.QuoteMeta(prefix)
             builder = append(builder, &builderPart{ prefix, true })
+            continue
         }
+        static = false
+        if key == "" {
+            // key = fmt.Sprintf("anon%d", anons)
+            pattern += fmt.Sprintf("(%s)", mask)
+            anons++
+        } else {
+            pattern += fmt.Sprintf("(?P<%s>%s)", key, mask)
+        }
+        builder = append(builder, &builderPart{ key, false })
     }
     this.builder[rule] = builder
 
@@ -300,6 +313,24 @@ func (this *Router) Handle(rule string, h http.Handler) () {
         fmt.Printf("\tstatic %q\n", path)
         this.static[path] = route
         return 
+    }
+
+    reMatch := regexp.MustCompile(fmt.Spritnf("^%s$", pattern))
+    subNames := reMatch.SubexpNames()
+    getargs := func (path string) (args []string, kwargs map[string]string) {
+        subs := reMatch.FindStringSubmatch(path)
+        for i, subName := range subNames {
+            if i == 0 { continue }
+            if subName == "" {
+                args = append(args, subs[i])
+            } else {
+                if kwargs == nil {
+                    kwargs = make(map[string]string)
+                }
+                kwargs[subName] = subs[i]
+            }
+        }
+        return args, kwargs
     }
 }
 func (this *Router) build(rule string) (url string) {
@@ -316,4 +347,21 @@ func (this *Router) build(rule string) (url string) {
 
 type Route struct {
     handler     http.Handler
+}
+
+//
+
+type FilterFunc func (conf string) (string)
+
+var filters = map[string]FilterFunc{
+    "re": func (conf string) (string) {
+        if conf != "" { return conf }
+        return ""
+    },
+    "int": func (conf string) (string) {
+        return `-?\d+`
+    },
+    "float": func (conf string) (string) {
+        return `-?[\d.]+`
+    },
 }
