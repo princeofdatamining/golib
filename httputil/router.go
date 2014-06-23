@@ -10,10 +10,11 @@ import (
     "github.com/princeofdatamining/golib/strutil"
 )
 
-const (
-    MATCH_HOST_ANY = ".*$"
-)
-
+/*
+    <name>
+    <name:filter>
+    <name:re:pattern>
+//*/
 var bottle_rule_syntax = regexp.MustCompile(
     `(\\*)`+                                // [1]
     "(?:"+
@@ -94,9 +95,30 @@ func ParseBottleRule(rule string) (parts [][]string) {
     return 
 }
 
+type FilterFunc func (conf string) (string)
+
+var filters = map[string]FilterFunc{
+    "re": func (conf string) (string) {
+        if conf != "" { return conf }
+        return `[^/]+`
+    },
+    "int": func (conf string) (string) {
+        return `-?\d+`
+    },
+    "float": func (conf string) (string) {
+        return `-?[\d.]+`
+    },
+    "path": func (conf string) (string) {
+        return `.+`
+    },
+}
+
 //
 
-type WrapperFunc func (http.Handler) (http.Handler)
+type (
+    WrapperFunc func (http.Handler) (http.Handler)
+    HandlerArgs func (http.ResponseWriter, *http.Request, []string, map[string]string) ()
+)
 
 //
 
@@ -116,6 +138,10 @@ type fileHandler struct {
 func (this *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) () { http.ServeFile(w, r, this.fn) }
 
 //
+
+const (
+    MATCH_HOST_ANY = ".*$"
+)
 
 var _ http.Handler = NewMultiHostRouter()
 
@@ -191,6 +217,9 @@ func (this *MultiHostRouter) wrapped(h http.Handler) (http.Handler) {
     return this.wrapFunc(h)
 }
 func (this *MultiHostRouter) Handle(host_pattern, path_pattern string, h http.Handler) () { this.AddRouter(host_pattern).Handle(path_pattern, h) }
+func (this *MultiHostRouter) HandleFunc(host_pattern, path_pattern string, f func (http.ResponseWriter, *http.Request) ()) () {
+    this.Handle(host_pattern, path_pattern, http.HandlerFunc(f))
+}
 func (this *MultiHostRouter) cacheRouter(host_pattern string) (router *Router, found bool) {
     if this.cached == nil {
         this.cached = make(map[string]*Router)
@@ -231,6 +260,7 @@ type Router struct {
     rules       map[string]*Route
     builder     map[string][]*builderPart
     static      map[string]*Route
+    dynamic     []*dynamicPart
     //
     parent      *MultiHostRouter
     host_re     *regexp.Regexp
@@ -239,6 +269,15 @@ type Router struct {
 type builderPart struct {
     key     string
     static  bool
+}
+type dynamicPart struct {
+    pattern     string
+    rexp        *regexp.Regexp
+    pairs       []*pairGetargsRule
+}
+type pairGetargsRule struct {
+    getargs     func (string) ([]string, map[string]string)
+    route       *Route
 }
 func newRouter(p *MultiHostRouter, host_pattern string) (*Router) {
     this := NewRouter()
@@ -259,10 +298,36 @@ func (this *Router) match(path string) (*Route, []string, map[string]string) {
     this.RLock()
     defer this.RUnlock()
 
-    if rule, found := this.static[path]; found {
-        return rule, nil, nil
+    // fmt.Printf("match static rule...\n")
+    if route, found := this.static[path]; found {
+        return route, nil, nil
     }
+
+    // fmt.Printf("match dynamic rule...\n")
+    for _, d := range this.dynamic {
+        // fmt.Printf("dynamic %q\n", d.pattern)
+        subindex := d.rexp.FindStringSubmatchIndex(path)
+        // fmt.Printf("\t% d\n", subindex)
+        i := indexCombined(subindex, len(d.pairs))-1
+        if i < 0 {
+            continue
+        }
+        getargs, route := d.pairs[i].getargs, d.pairs[i].route
+        args, kwargs := getargs(path)
+        // fmt.Printf("\tmatched args: % q; kwargs: %+v\n", args, kwargs)
+        return route, args, kwargs
+    }
+
     return nil, nil, nil
+}
+func indexCombined(subs []int, n int) (i int) {
+    for i < n {
+        i++
+        if subs[i*2+1] >= 0 {
+            return i
+        }
+    }
+    return 0
 }
 func (this *Router) WrapFunc(f WrapperFunc) () { this.wrapFunc = f }
 func (this *Router) wrapped(h http.Handler) (http.Handler) {
@@ -285,18 +350,23 @@ func (this *Router) Handle(rule string, h http.Handler) () {
     this.rules[rule] = route
 
     pattern := ""
+    flat_pattern := ""
     builder := []*builderPart{}
     static := true
     anons := 0
     for _, parts := range ParseBottleRule(rule) {
+        var se string
         prefix, key, filter, conf := parts[0], parts[1], parts[2], parts[3]
-        fmt.Printf("\t%q %q %q %q\n", prefix, key, filter, conf)
+        // fmt.Printf("\t%q %q %q %q\n", prefix, key, filter, conf)
         if prefix != "" {
-            pattern += regexp.QuoteMeta(prefix)
+            se = regexp.QuoteMeta(prefix)
+            pattern += se
+            flat_pattern += se
             builder = append(builder, &builderPart{ prefix, true })
             continue
         }
         static = false
+        mask := filters[filter](conf)
         if key == "" {
             // key = fmt.Sprintf("anon%d", anons)
             pattern += fmt.Sprintf("(%s)", mask)
@@ -304,18 +374,19 @@ func (this *Router) Handle(rule string, h http.Handler) () {
         } else {
             pattern += fmt.Sprintf("(?P<%s>%s)", key, mask)
         }
+        flat_pattern += fmt.Sprintf("(?:%s)", mask)
         builder = append(builder, &builderPart{ key, false })
     }
     this.builder[rule] = builder
 
     if static {
         path := this.build(rule)
-        fmt.Printf("\tstatic %q\n", path)
+        // fmt.Printf("\tstatic %q\n", path)
         this.static[path] = route
         return 
     }
 
-    reMatch := regexp.MustCompile(fmt.Spritnf("^%s$", pattern))
+    reMatch := regexp.MustCompile(fmt.Sprintf("^%s$", pattern))
     subNames := reMatch.SubexpNames()
     getargs := func (path string) (args []string, kwargs map[string]string) {
         subs := reMatch.FindStringSubmatch(path)
@@ -332,6 +403,37 @@ func (this *Router) Handle(rule string, h http.Handler) () {
         }
         return args, kwargs
     }
+
+    var (
+        e error
+        last *dynamicPart
+    )
+    flat_pattern = fmt.Sprintf("(^%s$)", flat_pattern)
+    if N := len(this.dynamic); N <= 0 {
+        e = fmt.Errorf("")
+    } else {
+        last = this.dynamic[N-1]
+        combined := last.pattern + "|" + flat_pattern
+        if exp, err := regexp.Compile(combined); err == nil {
+            last.pattern = combined
+            last.rexp = exp
+        } else {
+            e = err
+        }
+    }
+    if e != nil {
+        last = &dynamicPart{
+            pattern: flat_pattern,
+        }
+        this.dynamic = append(this.dynamic, last)
+    }
+    last.pairs = append(last.pairs, &pairGetargsRule{
+        getargs: getargs,
+        route: route,
+    })
+}
+func (this *Router) HandleFunc(rule string, f func (http.ResponseWriter, *http.Request) ()) () {
+    this.Handle(rule, http.HandlerFunc(f))
 }
 func (this *Router) build(rule string) (url string) {
     builder := this.builder[rule]
@@ -350,18 +452,3 @@ type Route struct {
 }
 
 //
-
-type FilterFunc func (conf string) (string)
-
-var filters = map[string]FilterFunc{
-    "re": func (conf string) (string) {
-        if conf != "" { return conf }
-        return ""
-    },
-    "int": func (conf string) (string) {
-        return `-?\d+`
-    },
-    "float": func (conf string) (string) {
-        return `-?[\d.]+`
-    },
-}
