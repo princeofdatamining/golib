@@ -117,7 +117,7 @@ var filters = map[string]FilterFunc{
 
 type (
     WrapperFunc func (http.Handler) (http.Handler)
-    HandlerArgs func (http.ResponseWriter, *http.Request, []string, map[string]string) ()
+    ArgsHandler func (http.ResponseWriter, *http.Request, []string, map[string]string) ()
 )
 
 //
@@ -182,8 +182,8 @@ func (this *MultiHostRouter) Handler(r *http.Request) (h http.Handler) {
         }
     }
     for _, router := range routers {
-        if route, _, _ := router.match(r.URL.Path); route != nil {
-            return route.handler
+        if h = router.match(r.URL.Path); h != nil {
+            return h
         }
     }
     return this.wrapped(http.NotFoundHandler())
@@ -216,10 +216,8 @@ func (this *MultiHostRouter) wrapped(h http.Handler) (http.Handler) {
     }
     return this.wrapFunc(h)
 }
-func (this *MultiHostRouter) Handle(host_pattern, path_pattern string, h http.Handler) () { this.AddRouter(host_pattern).Handle(path_pattern, h) }
-func (this *MultiHostRouter) HandleFunc(host_pattern, path_pattern string, f func (http.ResponseWriter, *http.Request) ()) () {
-    this.Handle(host_pattern, path_pattern, http.HandlerFunc(f))
-}
+func (this *MultiHostRouter) Handle    (host_pattern, path_pattern string, h http.Handler) () { this.AddRouter(host_pattern).Handle    (path_pattern, h) }
+func (this *MultiHostRouter) HandleFunc(host_pattern, path_pattern string, f ArgsHandler ) () { this.AddRouter(host_pattern).HandleFunc(path_pattern, f) }
 func (this *MultiHostRouter) cacheRouter(host_pattern string) (router *Router, found bool) {
     if this.cached == nil {
         this.cached = make(map[string]*Router)
@@ -287,20 +285,20 @@ func newRouter(p *MultiHostRouter, host_pattern string) (*Router) {
     return this
 }
 func (this *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) () { this.Handler(r).ServeHTTP(w, r) }
-func (this *Router) Handler(r *http.Request) (http.Handler) {
-    if route, _, _ := this.match(r.URL.Path); route != nil {
-        return route.handler
+func (this *Router) Handler(r *http.Request) (h http.Handler) {
+    if h = this.match(r.URL.Path); h != nil {
+        return h
     }
     return this.wrapped(http.NotFoundHandler())
 }
 func (this *Router) matchHost(host string) (bool) { return this.host_re.MatchString(host) }
-func (this *Router) match(path string) (*Route, []string, map[string]string) {
+func (this *Router) match(path string) (h http.Handler) {
     this.RLock()
     defer this.RUnlock()
 
     // fmt.Printf("match static rule...\n")
     if route, found := this.static[path]; found {
-        return route, nil, nil
+        return route.nullArgsHandler
     }
 
     // fmt.Printf("match dynamic rule...\n")
@@ -315,10 +313,18 @@ func (this *Router) match(path string) (*Route, []string, map[string]string) {
         getargs, route := d.pairs[i].getargs, d.pairs[i].route
         args, kwargs := getargs(path)
         // fmt.Printf("\tmatched args: % q; kwargs: %+v\n", args, kwargs)
-        return route, args, kwargs
+        if route.withArgsHandler == nil {
+            return nil
+        }
+        h = &argsHandler{
+            handler : route.withArgsHandler,
+            args    : args,
+            kwargs  : kwargs,
+        }
+        return this.wrapped(h)
     }
 
-    return nil, nil, nil
+    return nil
 }
 func indexCombined(subs []int, n int) (i int) {
     for i < n {
@@ -336,16 +342,12 @@ func (this *Router) wrapped(h http.Handler) (http.Handler) {
     }
     return this.wrapFunc(h)
 }
-func (this *Router) Handle(rule string, h http.Handler) () {
+func (this *Router) handle(rule string, route *Route) () {
     this.Lock()
     defer this.Unlock()
 
     if _, exists := this.rules[rule]; exists {
         return 
-    }
-
-    route := &Route{
-        handler: this.wrapped(h),
     }
     this.rules[rule] = route
 
@@ -422,8 +424,13 @@ func (this *Router) Handle(rule string, h http.Handler) () {
         }
     }
     if e != nil {
+        exp, err := regexp.Compile(flat_pattern)
+        if err != nil {
+            return 
+        }
         last = &dynamicPart{
             pattern: flat_pattern,
+            rexp: exp,
         }
         this.dynamic = append(this.dynamic, last)
     }
@@ -432,8 +439,15 @@ func (this *Router) Handle(rule string, h http.Handler) () {
         route: route,
     })
 }
-func (this *Router) HandleFunc(rule string, f func (http.ResponseWriter, *http.Request) ()) () {
-    this.Handle(rule, http.HandlerFunc(f))
+func (this *Router) Handle    (rule string, h http.Handler) () {
+    this.handle(rule, &Route{
+        nullArgsHandler: this.wrapped(h),
+    })
+}
+func (this *Router) HandleFunc(rule string, f ArgsHandler ) () {
+    this.handle(rule, &Route{
+        withArgsHandler: f,
+    })
 }
 func (this *Router) build(rule string) (url string) {
     builder := this.builder[rule]
@@ -448,7 +462,17 @@ func (this *Router) build(rule string) (url string) {
 //
 
 type Route struct {
-    handler     http.Handler
+    nullArgsHandler     http.Handler
+    withArgsHandler     ArgsHandler
+}
+
+type argsHandler struct {
+    handler ArgsHandler
+    args    []string
+    kwargs  map[string]string
+}
+func (this *argsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) () {
+    this.handler(w, r, this.args, this.kwargs)
 }
 
 //
