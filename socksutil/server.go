@@ -2,6 +2,7 @@
 package socksutil
 
 import (
+    "fmt"
     "errors"
     "net"
     "io"
@@ -11,6 +12,8 @@ import (
 )
 
 var (
+    _ = fmt.Println
+
     errSocksVer     = errors.New("socks version not supported")
     errExtraData    = errors.New("socks handshake get extra data")
     errExtraReqData = errors.New("socks request get extra data")
@@ -72,6 +75,40 @@ func ParseSocksRequest(conn net.Conn) (rawaddr []byte, host string, err error) {
         err = errSocksVer
     }
     return
+}
+
+func RequestSocks5(conn net.Conn, host string, port int) (err error) {
+    buf := make([]byte, 258)
+    var n int
+    // handshake
+    buf[0] = byte(Ver5)
+    buf[1] = 0 // nmethods
+    if _, err = conn.Write(buf[:2]); err != nil {
+        return 
+    }
+    if n, err = io.ReadAtLeast(conn, buf, 2); err != nil {
+        return 
+    }
+    if n != 2 {
+        err = errExtraData
+        return 
+    } else if buf[0] != byte(Ver5) || buf[1] != 0 {
+        err = errSocksVer
+        return 
+    }
+    // request
+    buf[s5Version] = byte(Ver5)
+    buf[s5Command] = byte(CmdConnect)
+    buf[s5Reversed] = 0
+    raw, err := EncodeHostPort(host, port, Domain)
+    copy(buf[s5AddrType:], raw)
+    if _, err = conn.Write(buf[:3+len(raw)]); err != nil {
+        return 
+    }
+    if _, _, err = ParseSocks5Request(conn); err != nil {
+        return 
+    }
+    return nil
 }
 
 
@@ -191,7 +228,11 @@ const (
     s5AddrBody  = 4
 )
 
-func handleRequest5(conn net.Conn) (rawaddr []byte, host string, err error) {
+func foo() () {
+    //
+}
+
+func ParseSocks5Request(conn net.Conn) (rawaddr []byte, cmd byte, err error) {
     buf := make([]byte, 263)
     var n int
     // make sure we get possible domain length field
@@ -203,10 +244,7 @@ func handleRequest5(conn net.Conn) (rawaddr []byte, host string, err error) {
         err = errSocksVer
         return 
     }
-    if buf[s5Command] != byte(CmdConnect) {
-        err = errSocksCommand
-        return 
-    }
+    cmd = buf[s5Command]
 
     reqLen, err := GetRawLenAt(buf, s5AddrType)
     if err != nil {
@@ -224,7 +262,18 @@ func handleRequest5(conn net.Conn) (rawaddr []byte, host string, err error) {
         // debug.Printf("request data: %v\n", buf[:reqLen])
     }
 
-    rawaddr = buf[s5AddrType:reqLen]
+    return buf[s5AddrType:reqLen], cmd, nil
+}
+
+func handleRequest5(conn net.Conn) (rawaddr []byte, host string, err error) {
+    var cmd byte
+    if rawaddr, cmd, err = ParseSocks5Request(conn); err != nil {
+        return 
+    }
+    if cmd != byte(CmdConnect) {
+        err = errSocksCommand
+        return 
+    }
     host, port, err := DecodeHostPort(rawaddr)
     if err != nil {
         return
