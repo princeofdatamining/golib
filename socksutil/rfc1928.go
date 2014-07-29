@@ -108,21 +108,31 @@ func DecodeHostPort(raw []byte) (host string, port int, err error) {
 }
 
 func EncodeHostPort(host string, port int, tAddr AddrType) ([]byte, error) {
-    l := len(host)
-    n, err := CalcRawLen(tAddr, l)
-    if err != nil {
-        return nil, err
-    }
-    raw := make([]byte, n)
+    raw := make([]byte, 256)
     raw[0] = byte(tAddr)
+    //
+    ip := net.ParseIP(host)
     switch tAddr {
-    case Domain:
+    case IPv4:
+        ip = ip.To4()
+    case IPv6:
+        ip = ip.To16()
+    default:
+        ip = nil
+    }
+    var n int
+    if ip != nil {
+        n, _ = CalcRawLen(tAddr, 0)
+        copy(raw[1:n-2], ip)
+    } else {
+        l := len(host)
+        n, _ = CalcRawLen(Domain, l)
+        raw[0] = byte(Domain)
         raw[1] = byte(l)
         copy(raw[2:n-2], host)
-    default:
-        ip := net.ParseIP(host)
-        copy(raw[1:n-2], ip)
     }
+    raw = raw[:n]
+    //
     binary.BigEndian.PutUint16(raw[n-2:], uint16(port))
     return raw, nil
 }

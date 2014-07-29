@@ -77,7 +77,7 @@ func ParseSocksRequest(conn net.Conn) (rawaddr []byte, host string, err error) {
     return
 }
 
-func RequestSocks5(conn net.Conn, host string, port int) (err error) {
+func RequestSocks5(conn net.Conn, host string, port int, hstp AddrType) (err error) {
     buf := make([]byte, 258)
     var n int
     // handshake
@@ -100,7 +100,7 @@ func RequestSocks5(conn net.Conn, host string, port int) (err error) {
     buf[s5Version] = byte(Ver5)
     buf[s5Command] = byte(CmdConnect)
     buf[s5Reversed] = 0
-    raw, err := EncodeHostPort(host, port, Domain)
+    raw, err := EncodeHostPort(host, port, hstp)
     copy(buf[s5AddrType:], raw)
     if _, err = conn.Write(buf[:3+len(raw)]); err != nil {
         return 
