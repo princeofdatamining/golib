@@ -141,7 +141,6 @@ func (this *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) () { 
 
 const (
     MATCH_HOST_ANY = ".*$"
-    METHOD_ANY = "ANY"
 )
 
 var _ http.Handler = NewMultiHostRouter()

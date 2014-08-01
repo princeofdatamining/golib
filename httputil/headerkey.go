@@ -1,0 +1,90 @@
+
+package httputil
+
+const (
+PROTOCOL_HTTP  = "http"
+PROTOCOL_HTTPS = "https"
+
+HTTP_VER_PREFIX = "HTTP/"
+HTTP_VER_1_0_STR = HTTP_VER_PREFIX + "1.0"
+HTTP_VER_1_1_STR = HTTP_VER_PREFIX + "1.1"; HTTP_1_1_STR = HTTP_VER_1_1_STR
+
+METHOD_GET     = "GET"
+METHOD_HEAD    = "HEAD"
+METHOD_POST    = "POST"
+METHOD_PUT     = "PUT"
+METHOD_DELETE  = "DELETE"
+METHOD_PATCH   = "PATCH"
+METHOD_OPTIONS = "OPTIONS"
+METHOD_ANY     = "ANY"
+
+HEADER_HOST = "Host"
+HEADER_USER_AGENT = "User-Agent"
+HEADER_CONTENT_ENCODING = "Content-Encoding"
+HEADER_CONTENT_TYPE = "Content-Type"
+HEADER_CONTENT_LENGTH = "Content-Length"
+HEADER_TRANSFER_ENCODING = "Transfer-Encoding"
+HEADER_CONNECTION = "Connection"
+HEADER_ACCEPT = "Accept"
+HEADER_ACCEPT_ENCODING = "Accept-Encoding"
+HEADER_ACCEPT_LANGUAGE = "Accept-Language"
+HEADER_Authorization = "Authorization"
+HEADER_COOKIE = "Cookie"
+HEADER_ORIGIN = "Origin"
+HEADER_REFERER = "Referer"
+HEADER_EXPECT = "Expect"
+HEADER_RANGE = "Range"
+HEADER_IF_NONE_MATCH = "If-None-Match"
+HEADER_IF_MODIFIED_SINCE = "If-Modified-Since"
+
+XHEADER_FORWARDED_FOR = "X-Forwarded-For"
+XHEADER_REAL_IP = "X-Real-Ip"
+XHEADER_FORWARDED_PROTO = "X-Forwarded-Proto"
+
+HEADER_SET_COOKIE = "Set-Cookie"
+HEADER_LOCATION = "Location"
+HEADER_SERVER = "Server"
+HEADER_DATE = "Date"
+HEADER_ETAG = "Etag"
+HEADER_CONTENT_LANGUAGE = "Content-Language"
+HEADER_CONTENT_MD5 = "Content-MD5"
+HEADER_CONTENT_RANGE = "Content-Range"
+HEADER_LAST_MODIFIED = "Last-Modified"
+HEADER_EXPIRES = "Expires"
+HEADER_CACHE_CONTROL = "Cache-Control"
+HEADER_ACCEPT_RANGES = "Accept-Ranges"
+HEADER_VARY = "Vary"
+HEADER_ALLOW = "Allow"
+
+
+UA_CHROME = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/27.0.1453.116 Safari/537.36"
+UA_DEFAULT = UA_CHROME
+
+TRANSFER_ENCODING_CHUNKED = "chunked"
+CONTENT_ENCODING_GZIP = "gzip"
+CONTENT_TYPE_POST_NORMAL = "application/x-www-form-urlencoded"
+CONTENT_TYPE_POST_MULTIPART = "multipart/form-data"
+MULTIPART_BOUNDARY = "boundary"
+MULTIPART_CONTENT_DISPOSITION = "Content-Disposition"
+MULTIPART_CONTENT_DISPOSITION_FORM_DATA = "form-data"
+MULTIPART_CONTENT_DISPOSITION_NAME = "name"
+MULTIPART_CONTENT_DISPOSITION_FILENAME = "filename"
+
+CONTENT_TYPE_UNKNOWN = "application/unknown"
+CONTENT_TYPE_OCTET = "application/octet-stream"
+CONTENT_TYPE_PLAIN = "text/plain"
+CONTENT_TYPE_HTML = "text/html"
+
+CONNECTION_ALIVE = "keep-alive"
+CONNECTION_CLOSE = "close"
+
+ACCEPT_ANY = "*/*"
+ACCEPT_ENCODING_ANY = "gzip,deflate,sdch"
+ACCEPT_LANGUAGE_EN = "en"
+ACCEPT_LANGUAGE_ZH = "zh-CN,zh;q=0.9"
+
+EXPECT_100_CONTINUE = "100-continue"
+
+ACCEPT_RANGES_BYTES = "bytes"
+CACHE_CONTROL_MAX_AGE = "max-age"
+)
