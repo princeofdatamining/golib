@@ -132,3 +132,41 @@ func (this *txMap) Update(objects ...interface{}) (rows int64, err error) {
 func (this *tableMap) Update(objects ...interface{}) (rows int64, err error) {
     return this.dbmap.update(this, this, objects)
 }
+
+func setWhere(where string) (ret string) {
+    ret = strings.TrimSpace(where)
+    switch ret {
+    case "", "all", "ALL", "*":
+        return "1"
+    }
+    return ret
+}
+func (this *tableMap) Update2(exec SQLExecutor, where string, data map[string]string, except []string) (rows int64, err error) {
+    dialect := this.dbmap.dialect
+    updSQL := dialect.UpdateSQL(this.schemaName, this.tableName)
+    //
+    L := len(data)
+    setFields := make([]string, L)
+    quote := ""
+    noQuotes := array2dict(except)
+    var i int
+    for key, val := range data {
+        if _, ok := noQuotes[key]; ok {
+            quote = ""
+        } else {
+            quote = "'"
+        }
+        setFields[i] = fmt.Sprintf("%s = %s%s%s", dialect.QuoteField(key), quote, val, quote)
+        i++
+    }
+    //
+    query := fmt.Sprintf(updSQL, strings.Join(setFields, ", "), setWhere(where))
+    if exec == nil {
+        exec = this
+    }
+    var res sql.Result
+    if res, err = exec.Exec(query); err == nil {
+        rows, err = res.RowsAffected()
+    }
+    return 
+}

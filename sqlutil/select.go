@@ -3,6 +3,8 @@ package sqlutil
 
 import (
     "fmt"
+    "strings"
+    "regexp"
     "errors"
     "reflect"
     "database/sql"
@@ -188,15 +190,39 @@ func (this *tableMap) SelectOne(holder interface{}, query string, args ...interf
 
 //
 
+var (
+    reField = regexp.MustCompile("^\\s*(\\w+)(?:\\s+(\\w+)\\s+(.+)\\s*)?\\s*$")
+)
+
 func (this *tableMap) makeSelectSQL(fields, where, suffix string) (string) {
     sql := this.dbmap.dialect.SelectSQL(this.schemaName, this.tableName)
-    if fields == "" {
-        fields = "*"
+
+    fs := strings.TrimSpace(fields)
+    /*
+    fs := ""
+    for _, field := range strings.Split(fields, ",") {
+        if fs != "" {
+            fs += ", "
+        }
+        subs := reField.FindStringSubmatch(field)
+        if subs == nil {
+            fs += field
+        } else {
+            fs += this.dbmap.dialect.QuoteField(subs[1])
+            if subs[2] != "" {
+                fs += fmt.Sprintf(" %s %s", strings.ToUpper(subs[2]), subs[3])
+            }
+        }
     }
+    //*/
+    if fs == "" {
+        fs = "*"
+    }
+
     if where == "" {
         where = "1"
     }
-    return fmt.Sprintf(sql, fields, where, suffix)
+    return fmt.Sprintf(sql, fs, where, suffix)
 }
 
 func (this *tableMap) SelectOne2 (holder interface{},         where         string, args ...interface{}) (error) {

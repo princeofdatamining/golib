@@ -107,3 +107,18 @@ func (this *txMap) Delete(objects ...interface{}) (rows int64, err error) {
 func (this *tableMap) Delete(objects ...interface{}) (rows int64, err error) {
     return this.dbmap.delete(this, this, objects)
 }
+
+func (this *tableMap) Delete2(exec SQLExecutor, where string) (rows int64, err error) {
+    dialect := this.dbmap.dialect
+    delSQL := dialect.DeleteSQL(this.schemaName, this.tableName)
+    //
+    query := fmt.Sprintf(delSQL, setWhere(where))
+    if exec == nil {
+        exec = this
+    }
+    var res sql.Result
+    if res, err = exec.Exec(query); err == nil {
+        rows, err = res.RowsAffected()
+    }
+    return 
+}

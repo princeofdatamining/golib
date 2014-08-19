@@ -104,3 +104,37 @@ func (this *txMap) Insert(objects ...interface{}) (rows int64, err error) {
 func (this *tableMap) Insert(objects ...interface{}) (rows int64, err error) {
     return this.dbmap.insert(this, this, objects)
 }
+
+func array2dict(arr []string) (dict map[string]bool) {
+    dict = make(map[string]bool)
+    for _, s := range arr {
+        dict[s] = true
+    }
+    return 
+}
+func (this *tableMap) Insert2(exec SQLExecutor, data map[string]string, except []string) (id int64, err error) {
+    dialect := this.dbmap.dialect
+    sql := dialect.InsertSQL(this.schemaName, this.tableName, this.autoincrCol)
+    //
+    L := len(data)
+    colNames := make([]string, L)
+    colBinds := make([]string, L)
+    quote := ""
+    noQuotes := array2dict(except)
+    var i int
+    for key, val := range data {
+        if _, ok := noQuotes[key]; ok {
+            quote = ""
+        } else {
+            quote = "'"
+        }
+        colNames[i] = dialect.QuoteField(key)
+        colBinds[i] = fmt.Sprintf("%s%s%s", quote, val, quote)
+        i++
+    }
+    query := fmt.Sprintf(sql, strings.Join(colNames, ", "), strings.Join(colBinds, ", "))
+    if exec == nil {
+        exec = this
+    }
+    return dialect.InsertAndReturnId(exec, query)
+}

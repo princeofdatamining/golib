@@ -154,6 +154,9 @@ type TableMap interface {
     delete(vptr reflect.Value, exec SQLExecutor, execVal []reflect.Value) (rows int64, err error)
     get(vptr reflect.Value, exec SQLExecutor, execVal []reflect.Value, key string) (rows int64, err error)
     //
+    Insert2(exec SQLExecutor,               data map[string]string, except []string) (id   int64, err error)
+    Update2(exec SQLExecutor, where string, data map[string]string, except []string) (rows int64, err error)
+    Delete2(exec SQLExecutor, where string                                         ) (rows int64, err error)
     SelectVal2 (holder interface{},         where         string, args ...interface{}) (error)
     SelectOne2 (holder interface{},         where         string, args ...interface{}) (error)
     SelectAll2 (slices interface{},         where         string, args ...interface{}) (int64, error)
