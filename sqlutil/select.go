@@ -2,6 +2,7 @@
 package sqlutil
 
 import (
+    "fmt"
     "errors"
     "reflect"
     "database/sql"
@@ -184,3 +185,43 @@ func (this *dbMap) selectOne(exec SQLExecutor, holder interface{}, query string,
 func (this *dbMap   ) SelectOne(holder interface{}, query string, args ...interface{}) (error) { return this      .selectOne(this, holder, query, args...) }
 func (this *txMap   ) SelectOne(holder interface{}, query string, args ...interface{}) (error) { return this.dbmap.selectOne(this, holder, query, args...) }
 func (this *tableMap) SelectOne(holder interface{}, query string, args ...interface{}) (error) { return this.dbmap.selectOne(this, holder, query, args...) }
+
+//
+
+func (this *tableMap) makeSelectSQL(fields, where, suffix string) (string) {
+    sql := this.dbmap.dialect.SelectSQL(this.schemaName, this.tableName)
+    if fields == "" {
+        fields = "*"
+    }
+    if where == "" {
+        where = "1"
+    }
+    return fmt.Sprintf(sql, fields, where, suffix)
+}
+
+func (this *tableMap) SelectOne2 (holder interface{},         where         string, args ...interface{}) (error) {
+    return this.SelectOne(holder, this.makeSelectSQL(""    , where, ""    ), args...)
+}
+func (this *tableMap) SelectOne2x(holder interface{},         where, suffix string, args ...interface{}) (error) {
+    return this.SelectOne(holder, this.makeSelectSQL(""    , where, suffix), args...)
+}
+func (this *tableMap) SelectOne3 (holder interface{}, fields, where         string, args ...interface{}) (error) {
+    return this.SelectOne(holder, this.makeSelectSQL(fields, where, ""    ), args...)
+}
+func (this *tableMap) SelectOne3x(holder interface{}, fields, where, suffix string, args ...interface{}) (error) {
+    return this.SelectOne(holder, this.makeSelectSQL(fields, where, suffix), args...)
+}
+
+
+func (this *tableMap) SelectAll2 (slices interface{},         where         string, args ...interface{}) (int64, error) {
+    return this.SelectAll(slices, this.makeSelectSQL(""    , where, ""    ), args...)
+}
+func (this *tableMap) SelectAll2x(slices interface{},         where, suffix string, args ...interface{}) (int64, error) {
+    return this.SelectAll(slices, this.makeSelectSQL(""    , where, suffix), args...)
+}
+func (this *tableMap) SelectAll3 (slices interface{}, fields, where         string, args ...interface{}) (int64, error) {
+    return this.SelectAll(slices, this.makeSelectSQL(fields, where, ""    ), args...)
+}
+func (this *tableMap) SelectAll3x(slices interface{}, fields, where, suffix string, args ...interface{}) (int64, error) {
+    return this.SelectAll(slices, this.makeSelectSQL(fields, where, suffix), args...)
+}

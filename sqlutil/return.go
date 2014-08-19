@@ -116,3 +116,18 @@ func (this *dbMap) selectNullStr(exec SQLExecutor, query string, args ...interfa
 func (this *dbMap   ) SelectNullStr(query string, args ...interface{}) (sql.NullString, error) { return this.selectNullStr(this, query, args...) }
 func (this *txMap   ) SelectNullStr(query string, args ...interface{}) (sql.NullString, error) { return this.dbmap.selectNullStr(this, query, args...) }
 func (this *tableMap) SelectNullStr(query string, args ...interface{}) (sql.NullString, error) { return this.dbmap.selectNullStr(this, query, args...) }
+
+//
+
+func (this *tableMap) SelectVal2 (holder interface{},         where         string, args ...interface{}) (error) {
+    return this.SelectVal(holder, this.makeSelectSQL(""    , where, ""    ), args...)
+}
+func (this *tableMap) SelectVal2x(holder interface{},         where, suffix string, args ...interface{}) (error) {
+    return this.SelectVal(holder, this.makeSelectSQL(""    , where, suffix), args...)
+}
+func (this *tableMap) SelectVal3 (holder interface{}, fields, where         string, args ...interface{}) (error) {
+    return this.SelectVal(holder, this.makeSelectSQL(fields, where, ""    ), args...)
+}
+func (this *tableMap) SelectVal3x(holder interface{}, fields, where, suffix string, args ...interface{}) (error) {
+    return this.SelectVal(holder, this.makeSelectSQL(fields, where, suffix), args...)
+}

@@ -131,7 +131,7 @@ func UpdateSQL(this Dialect, schemaName, tableName string) (string) {
     return fmt.Sprintf("UPDATE %s SET %%s WHERE %%s;", this.QuotedTableForQuery(schemaName, tableName))
 }
 func SelectSQL(this Dialect, schemaName, tableName string) (string) {
-    return fmt.Sprintf("SELECT %%s FROM %s WHERE %%s;", this.QuotedTableForQuery(schemaName, tableName))
+    return fmt.Sprintf("SELECT %%s FROM %s WHERE %%s %%s;", this.QuotedTableForQuery(schemaName, tableName))
 }
 func DeleteSQL(this Dialect, schemaName, tableName string) (string) {
     return fmt.Sprintf("DELETE FROM %s WHERE %%s;", this.QuotedTableForQuery(schemaName, tableName))

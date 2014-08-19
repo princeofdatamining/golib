@@ -64,7 +64,7 @@ func (this *tableMap) bindGet(key string) (bind *bindObj, err error) {
     bind.setFields = bind.setFields[:v]
     bind.argFields = bind.keyFields
     //
-    bind.query = fmt.Sprintf(sql, strings.Join(getBinds[:v], ", "), strings.Join(wheres, " AND "))
+    bind.query = fmt.Sprintf(sql, strings.Join(getBinds[:v], ", "), strings.Join(wheres, " AND "), "")
     this.getBinds[key] = bind
     return 
 }

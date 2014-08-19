@@ -68,7 +68,7 @@ func (this *dbMap) AddTable3(meta interface{}, schema, name, comment string) (Ta
     return tmap, nil
 }
 func (this *dbMap) AddTable2(meta interface{}, name, comment string) (TableMap, error) { return this.AddTable3(meta, "", name, comment) }
-func (this *dbMap) AddTable (meta interface{}, name          string) (TableMap, error) { return this.AddTable2(meta, "", name) }
+func (this *dbMap) AddTable (meta interface{}, name          string) (TableMap, error) { return this.AddTable3(meta, "", name, ""     ) }
 func (this *dbMap) AddTable0(meta interface{}                      ) (TableMap, error) { return this.AddTable (meta, "") }
 func (this *dbMap) enumTables(f func (TableMap) (string), args []interface{}) (sql string, err error) {
     onlysql := len(args) > 0
@@ -153,6 +153,19 @@ type TableMap interface {
     update(vptr reflect.Value, exec SQLExecutor, execVal []reflect.Value) (rows int64, err error)
     delete(vptr reflect.Value, exec SQLExecutor, execVal []reflect.Value) (rows int64, err error)
     get(vptr reflect.Value, exec SQLExecutor, execVal []reflect.Value, key string) (rows int64, err error)
+    //
+    SelectVal2 (holder interface{},         where         string, args ...interface{}) (error)
+    SelectOne2 (holder interface{},         where         string, args ...interface{}) (error)
+    SelectAll2 (slices interface{},         where         string, args ...interface{}) (int64, error)
+    SelectVal2x(holder interface{},         where, suffix string, args ...interface{}) (error)
+    SelectOne2x(holder interface{},         where, suffix string, args ...interface{}) (error)
+    SelectAll2x(slices interface{},         where, suffix string, args ...interface{}) (int64, error)
+    SelectVal3 (holder interface{}, fields, where         string, args ...interface{}) (error)
+    SelectOne3 (holder interface{}, fields, where         string, args ...interface{}) (error)
+    SelectAll3 (slices interface{}, fields, where         string, args ...interface{}) (int64, error)
+    SelectVal3x(holder interface{}, fields, where, suffix string, args ...interface{}) (error)
+    SelectOne3x(holder interface{}, fields, where, suffix string, args ...interface{}) (error)
+    SelectAll3x(slices interface{}, fields, where, suffix string, args ...interface{}) (int64, error)
 }
 type tableMap struct {
     dbmap       *dbMap
