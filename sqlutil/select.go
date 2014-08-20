@@ -222,7 +222,7 @@ func (this *tableMap) makeSelectSQL(fields, where, suffix string) (string) {
     if where == "" {
         where = "1"
     }
-    return fmt.Sprintf(sql, fs, where, suffix)
+    return fmt.Sprintf(sql, "", fs, "", where, suffix)
 }
 
 func (this *tableMap) SelectOne2 (holder interface{},         where         string, args ...interface{}) (error) {

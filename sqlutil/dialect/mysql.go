@@ -27,7 +27,7 @@ type mysqlDialect struct {
 }
 
 func (this *mysqlDialect) QuoteField(f string) (string) { return QuoteField(f) }
-func (this *mysqlDialect) QuotedTableForQuery(schemaName, tableName string) (string) { return this.QuoteField(tableName) }
+func (this *mysqlDialect) QuoteTable(schemaName, tableName string) (string) { return this.QuoteField(tableName) }
 func (this *mysqlDialect) BindVar(i int) (string) { return "?" }
 func (this *mysqlDialect) BindAutoIncrVar() (string) { return "NULL" }
 
@@ -131,7 +131,7 @@ func (this *mysqlDialect) DropTableSQL(schemaName, tableName string, ifExists bo
     return DropTableSQL(this, schemaName, tableName, ifExists)
 }
 func (this *mysqlDialect) TruncateTableSQL(schemaName, tableName string) (string) {
-    return fmt.Sprintf("TRUNCATE %s;", this.QuotedTableForQuery(schemaName, tableName))
+    return fmt.Sprintf("TRUNCATE %s;", this.QuoteTable(schemaName, tableName))
 }
 func (this *mysqlDialect) InsertAndReturnId(exec exec_queryer, query string, args ...interface{}) (int64, error) {
     return InsertAndReturnId(this, exec, query, args...)

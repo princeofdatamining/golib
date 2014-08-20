@@ -31,7 +31,7 @@ type exec_queryer interface {
 }
 type Dialect interface {
     QuoteField(f string) (string)
-    QuotedTableForQuery(schemaName, tableName string) (string)
+    QuoteTable(schemaName, tableName string) (string)
     BindVar(i int) (string)
     BindAutoIncrVar() (string)
     InsertAndReturnId(exec exec_queryer, query string, args ...interface{}) (int64, error)
@@ -106,7 +106,7 @@ func CreateTableSQL(this Dialect, schemaName, tableName string, ifNotExists bool
     if ifNotExists {
         addIfNotExists = " IF NOT EXISTS"
     }
-    s := fmt.Sprintf("CREATE TABLE%s %s (\n", addIfNotExists, this.QuotedTableForQuery(schemaName, tableName))
+    s := fmt.Sprintf("CREATE TABLE%s %s (\n", addIfNotExists, this.QuoteTable(schemaName, tableName))
     return s0 + s + "%s\n)" + suffix + ";"
 }
 func DropTableSQL(this Dialect, schemaName, tableName string, ifExists bool) (string) {
@@ -114,7 +114,7 @@ func DropTableSQL(this Dialect, schemaName, tableName string, ifExists bool) (st
     if ifExists {
         addIfExists = " IF EXISTS"
     }
-    quoted := this.QuotedTableForQuery(schemaName, tableName)
+    quoted := this.QuoteTable(schemaName, tableName)
     return fmt.Sprintf("DROP TABLE%s %s;", addIfExists, quoted)
 }
 func InsertAndReturnId(this Dialect, exec exec_queryer, query string, args ...interface{}) (id int64, err error) {
@@ -125,14 +125,14 @@ func InsertAndReturnId(this Dialect, exec exec_queryer, query string, args ...in
     return res.LastInsertId()
 }
 func InsertSQL(this Dialect, schemaName, tableName string, suffix string) (string) {
-    return fmt.Sprintf("INSERT INTO %s (%%s) VALUES (%%s)%s;", this.QuotedTableForQuery(schemaName, tableName), suffix)
+    return fmt.Sprintf("INSERT INTO %s (%%s) VALUES (%%s)%s;", this.QuoteTable(schemaName, tableName), suffix)
 }
 func UpdateSQL(this Dialect, schemaName, tableName string) (string) {
-    return fmt.Sprintf("UPDATE %s SET %%s WHERE %%s;", this.QuotedTableForQuery(schemaName, tableName))
+    return fmt.Sprintf("UPDATE %s SET %%s WHERE %%s;", this.QuoteTable(schemaName, tableName))
 }
 func SelectSQL(this Dialect, schemaName, tableName string) (string) {
-    return fmt.Sprintf("SELECT %%s FROM %s WHERE %%s %%s;", this.QuotedTableForQuery(schemaName, tableName))
+    return fmt.Sprintf("SELECT %%s %%s FROM %s %%s WHERE %%s %%s;", this.QuoteTable(schemaName, tableName))
 }
 func DeleteSQL(this Dialect, schemaName, tableName string) (string) {
-    return fmt.Sprintf("DELETE FROM %s WHERE %%s;", this.QuotedTableForQuery(schemaName, tableName))
+    return fmt.Sprintf("DELETE FROM %s WHERE %%s;", this.QuoteTable(schemaName, tableName))
 }

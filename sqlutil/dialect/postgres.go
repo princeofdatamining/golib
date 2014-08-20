@@ -23,7 +23,7 @@ type postgresDialect struct {
 }
 
 func (this *postgresDialect) QuoteField(f string) (string) { return QuoteField(strings.ToLower(f)) }
-func (this *postgresDialect) QuotedTableForQuery(schemaName, tableName string) (q string) {
+func (this *postgresDialect) QuoteTable(schemaName, tableName string) (q string) {
     q = this.QuoteField(tableName)
     if schemaName != "" {
         q = this.QuoteField(schemaName) + "." + q
@@ -149,7 +149,7 @@ func (this *postgresDialect) DropTableSQL(schemaName, tableName string, ifExists
     return DropTableSQL(this, schemaName, tableName, ifExists)
 }
 func (this *postgresDialect) TruncateTableSQL(schemaName, tableName string) (string) {
-    return fmt.Sprintf("TRUNCATE %s;", this.QuotedTableForQuery(schemaName, tableName))
+    return fmt.Sprintf("TRUNCATE %s;", this.QuoteTable(schemaName, tableName))
 }
 func (this *postgresDialect) InsertAndReturnId(exec exec_queryer, query string, args ...interface{}) (id int64, err error) {
     rows, err := exec.Query(query, args...)

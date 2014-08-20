@@ -22,7 +22,7 @@ type sqliteDialect struct {
 }
 
 func (this *sqliteDialect) QuoteField(f string) (string) { return QuoteField(f) }
-func (this *sqliteDialect) QuotedTableForQuery(schemaName, tableName string) (string) { return this.QuoteField(tableName) }
+func (this *sqliteDialect) QuoteTable(schemaName, tableName string) (string) { return this.QuoteField(tableName) }
 func (this *sqliteDialect) BindVar(i int) (string) { return "?" }
 func (this *sqliteDialect) BindAutoIncrVar() (string) { return "NULL" }
 
@@ -120,7 +120,7 @@ func (this *sqliteDialect) DropTableSQL(schemaName, tableName string, ifExists b
     return DropTableSQL(this, schemaName, tableName, ifExists)
 }
 func (this *sqliteDialect) TruncateTableSQL(schemaName, tableName string) (string) {
-    return fmt.Sprintf("DELETE FROM %s;", this.QuotedTableForQuery(schemaName, tableName))
+    return fmt.Sprintf("DELETE FROM %s;", this.QuoteTable(schemaName, tableName))
 }
 func (this *sqliteDialect) InsertAndReturnId(exec exec_queryer, query string, args ...interface{}) (int64, error) {
     return InsertAndReturnId(this, exec, query, args...)

@@ -190,6 +190,9 @@ type tableMap struct {
     updBind     *bindObj
     getBinds    map[string]*bindObj
 }
+func (this *tableMap) quoteTable() (string) {
+    return this.dbmap.dialect.QuoteTable(this.schemaName, this.tableName)
+}
 func (this *tableMap) checkPType(pt reflect.Type, hint string) (err error) {
     if pt.Kind() != reflect.Ptr {
         err = errfOpMustWithPointer(hint)
