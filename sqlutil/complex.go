@@ -52,11 +52,11 @@ type SQLQuery struct {
     page_sql_count  string
     page_allRows    int
     page_count      int
-    page_base       int
+    page_first      int
     page_last       int
-    page_from       int
-    page_upto       int
-    page_curr       int
+    page_left       int
+    page_right      int
+    page_select     int
 }
 func (this *SQLQuery) bind(t TableMap, as string) () {
     this.table, _ = t.(*tableMap)
@@ -73,7 +73,7 @@ func isAll(s string) (bool) {
 }
 func (this *SQLQuery) SetFields(s string) () {
     if s = strings.TrimSpace(s); s == "" {
-        if this.as == "" {
+        if this.as != "" {
             s = this.as
         } else {
             s = this.table.quoteTable()
@@ -94,7 +94,7 @@ func (this *SQLQuery) SetWhere(s string) () {
     }
     this.wheres = s
 }
-func (this *SQLQuery) SetGroup(s string) () {
+func (this *SQLQuery) SetGroupBy(s string) () {
     if s = strings.TrimSpace(s); s != "" {
         s = sGroupBy + " " + s
     }
@@ -124,6 +124,7 @@ var (
     reTableAs = regexp.MustCompile(sFrom + "\\s+\\S+")
     reLimit = regexp.MustCompile("^\\s*" + sLimit)
     reGroup = regexp.MustCompile("^\\s*" + sGroupBy)
+    reSemicolon = regexp.MustCompile(";\\s*$")
 )
 func (this *SQLQuery) MakeSQL(pageMode bool, suffixes ...string) (s string) {
     selSQL := this.dialect.SelectSQL(this.table.schemaName, this.table.tableName)
@@ -153,7 +154,11 @@ func (this *SQLQuery) MakeSQL(pageMode bool, suffixes ...string) (s string) {
         }
     }
     this.page_sql_count = fmt.Sprintf(selSQL, "", "COUNT(*)", this.joins, this.wheres, "")
-    return fmt.Sprintf(selSQL, "", this.fields, this.joins, this.wheres, suffix)
+    var page_suffix string
+    if pageMode {
+        page_suffix = " %s"
+    }
+    return fmt.Sprintf(selSQL, "", this.fields, this.joins, this.wheres, suffix + page_suffix)
 }
 func (this *SQLQuery) Get (slices interface{}, exec SQLExecutor,                       suffixes ...string) (int64, error) {
     if exec == nil {
@@ -183,19 +188,20 @@ func (this *SQLQuery) InitPage(suffixes ...string) () {
     this.page_sql = this.MakeSQL(true, suffixes...)
     //
     if this.page_grouping {
-        this.page_sql_count = fmt.Sprintf("SELECT COUNT(*) FROM (%s)", this.page_sql)
+        s := reSemicolon.ReplaceAllString(this.page_sql, "")
+        this.page_sql_count = fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS IPaging;", fmt.Sprintf(s, ""))
     }
     rows, _ := this.table.SelectInt(this.page_sql_count)
     allRows := int(rows)
     //
     this.page_allRows = allRows
     this.page_count = (allRows + this.page_perRows - 1) / this.page_perRows
-    this.page_base = 1
-    this.page_last = this.page_base + this.page_count - 1
+    this.page_first = 1
+    this.page_last = this.page_first + this.page_count - 1
     //
-    this.page_from = this.page_base
-    if this.page_upto = this.page_from + this.page_maxNav - 1; this.page_upto > this.page_last {
-        this.page_upto = this.page_last
+    this.page_left = this.page_first
+    if this.page_right = this.page_left + this.page_maxNav - 1; this.page_right > this.page_last {
+        this.page_right = this.page_last
     }
 }
 func (this *SQLQuery) InitPage1(        where string, suffixes ...string) () {
@@ -212,26 +218,111 @@ func (this *SQLQuery) GetPage(slices interface{}, pageNo int) (rows int64, err e
         return 
     }
     switch {
-    case pageNo < this.page_base:
-        this.page_curr = this.page_base
+    case pageNo < this.page_first:
+        this.page_select = this.page_first
     case pageNo > this.page_last:
-        this.page_curr = this.page_last
+        this.page_select = this.page_last
     default:
-        this.page_curr = pageNo
+        this.page_select = pageNo
     }
-    if this.page_from = this.page_curr - (this.page_maxNav/2); this.page_from < this.page_base {
-        this.page_from = this.page_base
+    if this.page_left      = this.page_select - (this.page_maxNav/2); this.page_left  < this.page_first {
+        this.page_left     = this.page_first
     }
-    if this.page_upto = this.page_from + (this.page_maxNav-1); this.page_upto > this.page_last {
-        this.page_upto = this.page_last
-        if this.page_from = this.page_upto+1-this.page_maxNav; this.page_from < this.page_base {
-            this.page_from = this.page_base
+    if this.page_right     = this.page_left  + (this.page_maxNav-1); this.page_right > this.page_last   {
+        this.page_right    = this.page_last
+        if this.page_left  = this.page_right - (this.page_maxNav-1); this.page_left  < this.page_first  {
+            this.page_left = this.page_first
         }
     }
-    start := this.page_perRows * (this.page_curr-this.page_base)
-    s := fmt.Sprintf("%s %s %d,%d", this.page_sql, sLimit, start, this.page_perRows)
+    start := this.page_perRows * (this.page_select-this.page_first)
+    s := fmt.Sprintf(this.page_sql, fmt.Sprintf("%s %d,%d", sLimit, start, this.page_perRows))
     return this.table.SelectAll(slices, s)
 }
-func (this *SQLQuery) GetPageBar(pattern string) (h string) {
+var HTML_Paging = `
+<![CDATA[FIRST]]>
+<![CDATA[PREVN]]>
+<![CDATA[PREV]]>
+<![CDATA[BODY]]>
+<![CDATA[NEXT]]>
+<![CDATA[NEXTN]]>
+<![CDATA[LAST]]>
+<![CDATA[INFO]]>
+`
+var HTML_Paging_Elements = map[string]string{
+    "FIRST": "[page] : href='[href]'",
+    "PREVN": "[page] : href='[href]'",
+    "PREV" : "[page] : href='[href]'",
+    "NEXT" : "[page] : href='[href]'",
+    "NEXTN": "[page] : href='[href]'",
+    "LAST" : "[page] : href='[href]'",
+    "INFO" : "[page]/[count]",
+    //
+    "SELECT": "\t[page]# href='[href]'\n",
+    "AROUND": "\thref='[href]', [page]\n",
+}
+func (this *SQLQuery) GetPageBar(pattern string, elements map[string]string, f func (page int) (string)) (h string) {
+    var (
+        elem, body string
+        page int
+    )
+    h = pattern
+    p := func (page int) (string) { return fmt.Sprintf("%d", page) }
+    //
+    elem, page = "FIRST", this.page_first
+    if replace, ok := elements[elem]; ok && this.page_select != page {
+        replace = strings.Replace(replace, "[page]", p(page), -1)
+        replace = strings.Replace(replace, "[href]", f(page), -1)
+        h = strings.Replace(h, fmt.Sprintf("<![CDATA[%s]]>", elem), replace, 1)
+    }
+    elem, page = "LAST" , this.page_last
+    if replace, ok := elements[elem]; ok && this.page_select != page {
+        replace = strings.Replace(replace, "[page]", p(page), -1)
+        replace = strings.Replace(replace, "[href]", f(page), -1)
+        h = strings.Replace(h, fmt.Sprintf("<![CDATA[%s]]>", elem), replace, 1)
+    }
+    //
+    elem, page = "PREVN", this.page_select - this.page_maxNav
+    if replace, ok := elements[elem]; ok && page >= this.page_first {
+        replace = strings.Replace(replace, "[page]", p(page), -1)
+        replace = strings.Replace(replace, "[href]", f(page), -1)
+        h = strings.Replace(h, fmt.Sprintf("<![CDATA[%s]]>", elem), replace, 1)
+    }
+    elem, page = "NEXTN", this.page_select + this.page_maxNav
+    if replace, ok := elements[elem]; ok && page <= this.page_last  {
+        replace = strings.Replace(replace, "[page]", p(page), -1)
+        replace = strings.Replace(replace, "[href]", f(page), -1)
+        h = strings.Replace(h, fmt.Sprintf("<![CDATA[%s]]>", elem), replace, 1)
+    }
+    //
+    elem, page = "PREV" , this.page_select - 1
+    if replace, ok := elements[elem]; ok && page >= this.page_first {
+        replace = strings.Replace(replace, "[page]", p(page), -1)
+        replace = strings.Replace(replace, "[href]", f(page), -1)
+        h = strings.Replace(h, fmt.Sprintf("<![CDATA[%s]]>", elem), replace, 1)
+    }
+    elem, page = "NEXT" , this.page_select + 1
+    if replace, ok := elements[elem]; ok && page <= this.page_last  {
+        replace = strings.Replace(replace, "[page]", p(page), -1)
+        replace = strings.Replace(replace, "[href]", f(page), -1)
+        h = strings.Replace(h, fmt.Sprintf("<![CDATA[%s]]>", elem), replace, 1)
+    }
+    //
+    elem, page = "INFO" , this.page_select
+    if replace, ok := elements[elem]; ok {
+        replace = strings.Replace(replace, "[page]", p(page), -1)
+        replace = strings.Replace(replace, "[count]",p(this.page_count), -1)
+        h = strings.Replace(h, fmt.Sprintf("<![CDATA[%s]]>", elem), replace, 1)
+    }
+    elem, body = "BODY" , ""
+    repSelect, repAround := elements["SELECT"], elements["AROUND"]
+    for page = this.page_left; page <= this.page_right; page++ {
+        replace := repAround
+        if page == this.page_select { replace = repSelect }
+        replace = strings.Replace(replace, "[page]", p(page), -1)
+        replace = strings.Replace(replace, "[href]", f(page), -1)
+        body += replace
+    }
+    h = strings.Replace(h, fmt.Sprintf("<![CDATA[%s]]>", elem), body, 1)
+    //
     return 
 }
