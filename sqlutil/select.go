@@ -215,11 +215,11 @@ func (this *tableMap) makeSelectSQL(fields, where, suffix string) (string) {
         }
     }
     //*/
-    if fs == "" {
+    if fs = strings.TrimSpace(fs); isAll(fs) {
         fs = "*"
     }
 
-    if where == "" {
+    if where = strings.TrimSpace(where); isAll(where) {
         where = "1"
     }
     return fmt.Sprintf(sql, "", fs, "", where, suffix)
