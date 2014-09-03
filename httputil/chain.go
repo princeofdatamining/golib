@@ -16,10 +16,16 @@ func (this HandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request, next h
     this(w, r, next)
 }
 
-func Wrap(handler http.Handler) (Handler) {
+func CallBefore(handler http.Handler) (Handler) {
     return HandlerFunc(func (w http.ResponseWriter, r *http.Request, next http.HandlerFunc) () {
         handler.ServeHTTP(w, r)
         next(w, r)
+    })
+}
+func CallAfter(handler http.Handler) (Handler) {
+    return HandlerFunc(func (w http.ResponseWriter, r *http.Request, next http.HandlerFunc) () {
+        next(w, r)
+        handler.ServeHTTP(w, r)
     })
 }
 
