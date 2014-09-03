@@ -9,8 +9,8 @@ import (
 const (
     YYYYMMDDHHNNSSZZZ       = "2006-01-02 15:04:05 000"
     YYYYMMDDHHNNSSZZZ_DOT   = "2006-01-02 15:04:05.000"
-    ISO                     = "2006-01-02T15:04:05.000Z07:00" // RFC3339Nano
-    UTC                     = "Mon, 02 Jan 2006 15:04:05 MST" // RFC1123
+    ISO_JS                  = "2006-01-02T15:04:05.000Z07:00" // RFC3339Nano
+    UTC_JS                  = "Mon, 02 Jan 2006 15:04:05 MST" // RFC1123
 )
 
 func FormatTime(t time.Time, layout string) ( s string) {

@@ -19,8 +19,8 @@ var (
 var inTimeTests = []*inTimeData{
     { t1, timeutil.YYYYMMDDHHNNSSZZZ_DOT, "2013-04-30 14:22:30.010", },
     { t1, timeutil.YYYYMMDDHHNNSSZZZ    , "2013-04-30 14:22:30 010", },
-    { t1, timeutil.ISO                  , "2013-04-30T14:22:30.010Z", },
-    { t2, timeutil.UTC                  , "Tue, 30 Apr 2013 14:22:30 UTC", },
+    { t1, timeutil.ISO_JS               , "2013-04-30T14:22:30.010Z", },
+    { t2, timeutil.UTC_JS               , "Tue, 30 Apr 2013 14:22:30 UTC", },
 }
 func testParseAndFormat(t *testing.T, in *inTimeData) {
     s := timeutil.FormatTime(in.t, in.layout)
