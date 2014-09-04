@@ -2,12 +2,14 @@
 package sqlutil
 
 import (
+    "fmt"
     "reflect"
     "regexp"
     "database/sql"
 )
 
 var (
+    _ = fmt.Println
     keyRegexp = regexp.MustCompile(`:[[:word:]]+`)
 )
 
@@ -45,7 +47,7 @@ func (this *dbMap) selectVal(exec SQLExecutor, holder interface{}, query string,
         query, args = this.maybeExpandNamedQuery(query, args)
     }
     if err = exec.QueryRow(query, args...).Scan(holder); err == sql.ErrNoRows {
-        err = nil
+        // err = nil
     }
     return 
 }

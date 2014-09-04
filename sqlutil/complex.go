@@ -25,11 +25,8 @@ func NewSQLQuery(t TableMap, args ...string) (m *SQLQuery) {
         page_maxNav: nMaxNavPage,
         page_perRows: nRowsPerPage,
     }
-    var as string
-    if args != nil {
-        as = args[0]
-    }
-    m.bind(t, as)
+    m.bind(t)
+    m.SetAs(args...)
     return 
 }
 type SQLQuery struct {
@@ -44,6 +41,7 @@ type SQLQuery struct {
     having  string
     orders  string
     limits  string
+    suffixs []string
     //
     page_grouping   bool
     page_maxNav     int
@@ -58,11 +56,11 @@ type SQLQuery struct {
     page_right      int
     page_select     int
 }
-func (this *SQLQuery) bind(t TableMap, as string) () {
+func (this *SQLQuery) bind(t TableMap) () {
     this.table, _ = t.(*tableMap)
     this.db = this.table.dbmap
     this.dialect = this.db.dialect
-    this.as = strings.TrimSpace(as)
+    return 
 }
 func isAll(s string) (bool) {
     switch s {
@@ -71,7 +69,15 @@ func isAll(s string) (bool) {
     }
     return false
 }
-func (this *SQLQuery) SetFields(s string) () {
+func (this *SQLQuery) SetAs(args ...string) (*SQLQuery) {
+    if len(args) <= 0 {
+        this.as = ""
+    } else {
+        this.as = strings.TrimSpace(args[0])
+    }
+    return this
+}
+func (this *SQLQuery) SetFields(s string) (*SQLQuery) {
     if s = strings.TrimSpace(s); s == "" {
         if this.as != "" {
             s = this.as
@@ -81,44 +87,55 @@ func (this *SQLQuery) SetFields(s string) () {
         s += ".*"
     }
     this.fields = s
+    return this
 }
-func (this *SQLQuery) SetJoin(s string) () {
+func (this *SQLQuery) SetJoin(s string) (*SQLQuery) {
     if s = strings.TrimSpace(s); false {
         //
     }
     this.joins = s
+    return this
 }
-func (this *SQLQuery) SetWhere(s string) () {
+func (this *SQLQuery) SetWhere(s string) (*SQLQuery) {
     if s = strings.TrimSpace(s); isAll(s) {
         s = "1"
     }
     this.wheres = s
+    return this
 }
-func (this *SQLQuery) SetGroupBy(s string) () {
+func (this *SQLQuery) SetGroupBy(s string) (*SQLQuery) {
     if s = strings.TrimSpace(s); s != "" {
         s = sGroupBy + " " + s
     }
     this.groups = s
+    return this
 }
-func (this *SQLQuery) SetHaving(s string) () {
+func (this *SQLQuery) SetHaving(s string) (*SQLQuery) {
     if s = strings.TrimSpace(s); s != "" {
         s = sHaving + " " + s
     }
     this.having = s
+    return this
 }
-func (this *SQLQuery) SetOrderBy(s string) () {
+func (this *SQLQuery) SetOrderBy(s string) (*SQLQuery) {
     if s = strings.TrimSpace(s); s != "" {
         s = sOrderBy + " " + s
     }
     this.orders = s
+    return this
 }
-func (this *SQLQuery) SetLimit(s string) () {
+func (this *SQLQuery) SetLimit(s string) (*SQLQuery) {
     if s = strings.TrimSpace(s); isAll(s) {
         s = ""
     } else {
         s = sLimit + " " + s
     }
     this.limits = s
+    return this
+}
+func (this *SQLQuery) SetSuffixes(suffixes ...string) (*SQLQuery) {
+    this.suffixs = suffixes
+    return this
 }
 var (
     reTableAs = regexp.MustCompile(sFrom + "\\s+\\S+")
@@ -160,20 +177,23 @@ func (this *SQLQuery) MakeSQL(pageMode bool, suffixes ...string) (s string) {
     }
     return fmt.Sprintf(selSQL, "", this.fields, this.joins, this.wheres, suffix + page_suffix)
 }
-func (this *SQLQuery) Get (slices interface{}, exec SQLExecutor,                       suffixes ...string) (int64, error) {
+func (this *SQLQuery) get (all bool, holder interface{}, exec SQLExecutor,                       args ...interface{}) (rows int64, err error) {
     if exec == nil {
         exec = this.table
     }
-    return exec.SelectAll(slices, this.MakeSQL(false, suffixes...))
+    if all {
+        rows, err = exec.SelectAll(holder, this.MakeSQL(false, this.suffixs...), args...)
+    } else {
+        err       = exec.SelectOne(holder, this.MakeSQL(false, this.suffixs...), args...)
+    }
+    return 
 }
-func (this *SQLQuery) Get1(slices interface{}, exec SQLExecutor,         where string, suffixes ...string) (int64, error) {
-    this.SetWhere(where)
-    return this.Get(slices, exec, suffixes...)
+func (this *SQLQuery) GetAll(slices interface{}, exec SQLExecutor, args ...interface{}) (int64, error) {
+    return this.get( true, slices, exec, args...)
 }
-func (this *SQLQuery) Get2(slices interface{}, exec SQLExecutor, fields, where string, suffixes ...string) (int64, error) {
-    this.SetFields(fields)
-    this.SetWhere(where)
-    return this.Get(slices, exec, suffixes...)
+func (this *SQLQuery) GetOne(holder interface{}, exec SQLExecutor, args ...interface{}) (err error) {
+    _, err = this.get(false, holder, exec, args...)
+    return 
 }
 
 func (this *SQLQuery) SetPageMode(maxNavPage, rowsPerPage int) () {
@@ -184,14 +204,14 @@ func (this *SQLQuery) SetPageMode(maxNavPage, rowsPerPage int) () {
         this.page_perRows = nRowsPerPage
     }
 }
-func (this *SQLQuery) InitPage(suffixes ...string) () {
-    this.page_sql = this.MakeSQL(true, suffixes...)
+func (this *SQLQuery) InitPage(args ...interface{}) () {
+    this.page_sql = this.MakeSQL(true, this.suffixs...)
     //
     if this.page_grouping {
         s := reSemicolon.ReplaceAllString(this.page_sql, "")
         this.page_sql_count = fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS IPaging;", fmt.Sprintf(s, ""))
     }
-    rows, _ := this.table.SelectInt(this.page_sql_count)
+    rows, _ := this.table.SelectInt(this.page_sql_count, args...)
     allRows := int(rows)
     //
     this.page_allRows = allRows
@@ -204,16 +224,16 @@ func (this *SQLQuery) InitPage(suffixes ...string) () {
         this.page_right = this.page_last
     }
 }
-func (this *SQLQuery) InitPage1(        where string, suffixes ...string) () {
+func (this *SQLQuery) InitPage1(        where string, args ...interface{}) () {
     this.SetWhere(where)
-    this.InitPage(suffixes...)
+    this.InitPage(args...)
 }
-func (this *SQLQuery) InitPage2(fields, where string, suffixes ...string) () {
+func (this *SQLQuery) InitPage2(fields, where string, args ...interface{}) () {
     this.SetFields(fields)
     this.SetWhere(where)
-    this.InitPage(suffixes...)
+    this.InitPage(args...)
 }
-func (this *SQLQuery) GetPage(slices interface{}, pageNo int) (rows int64, err error) {
+func (this *SQLQuery) GetPage(slices interface{}, pageNo int, args ...interface{}) (rows int64, err error) {
     if (this.page_allRows <= 0) {
         return 
     }
@@ -236,7 +256,7 @@ func (this *SQLQuery) GetPage(slices interface{}, pageNo int) (rows int64, err e
     }
     start := this.page_perRows * (this.page_select-this.page_first)
     s := fmt.Sprintf(this.page_sql, fmt.Sprintf("%s %d,%d", sLimit, start, this.page_perRows))
-    return this.table.SelectAll(slices, s)
+    return this.table.SelectAll(slices, s, args...)
 }
 var HTML_Paging = `
 <![CDATA[FIRST]]>
