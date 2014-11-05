@@ -16,13 +16,13 @@ func (this HandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request, next h
     this(w, r, next)
 }
 
-func CallBefore(handler http.Handler) (Handler) {
+func ServeBefore(handler http.Handler) (Handler) {
     return HandlerFunc(func (w http.ResponseWriter, r *http.Request, next http.HandlerFunc) () {
         handler.ServeHTTP(w, r)
         next(w, r)
     })
 }
-func CallAfter(handler http.Handler) (Handler) {
+func ServeAfter (handler http.Handler) (Handler) {
     return HandlerFunc(func (w http.ResponseWriter, r *http.Request, next http.HandlerFunc) () {
         next(w, r)
         handler.ServeHTTP(w, r)
@@ -42,6 +42,8 @@ func (this *chainNode) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     this.handler.ServeHTTP(w, r, this.next.ServeHTTP)
 }
 
+//
+
 type ChainHandler struct {
     head, tail *chainNode
 }
@@ -58,13 +60,6 @@ func (this *ChainHandler) Chain(handler Handler) () {
         this.tail.next = temp
     }
     this.tail = temp
-    //*/
-    /* FILO
-    this.head = &chainNode{
-        handler: handler,
-        next: this.head,
-    }
-    //*/
 }
 func (this *ChainHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) () {
     w = NewResponseWriter(w)
